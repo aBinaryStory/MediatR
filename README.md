@@ -6,10 +6,10 @@ MediatR Topics
 By default MediatR's event handlers are triggered by type. 
 This fork allows another restriction based on a given topic.
 
-Use Case:
+##Use Case
 Segregation of events of the same type based on customer filters
 
-Example: 
+##Example
 In our restaurant our regular customers get an additional free drink when they place their order.
 The order type is the same, but the decision is made based on the customer names.
 ```csharp
@@ -41,7 +41,7 @@ public class OrderCreator
 
         if(_regularCustomers.contains(order.customer))
         {
-            _mediator.Publish(order, "regular-customer"); //serve free drink etc.      
-	    }
+            _mediator.Publish(order, "regular-customer"); //serve free drink etc.
+        }
     }
 }
