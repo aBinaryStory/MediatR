@@ -2,14 +2,14 @@ MediatR Topics
 =======
 
 
-### About this fork
+## About this fork
 By default MediatR's event handlers are triggered by type. 
 This fork allows another restriction based on a given topic.
 
-## Use Case
+### Use Case
 Segregation of events of the same type based on customer filters
 
-## Example
+### Example
 In our restaurant our regular customers get an additional free drink when they place their order.
 The order type is the same, but the decision is made based on the customer names.
 ```csharp
