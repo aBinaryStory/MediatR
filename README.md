@@ -1,27 +1,47 @@
-MediatR
+MediatR Topics
 =======
 
-![CI](https://github.com/jbogard/MediatR/workflows/CI/badge.svg)
-[![NuGet](https://img.shields.io/nuget/dt/mediatr.svg)](https://www.nuget.org/packages/mediatr) 
-[![NuGet](https://img.shields.io/nuget/vpre/mediatr.svg)](https://www.nuget.org/packages/mediatr)
-[![MyGet (dev)](https://img.shields.io/myget/mediatr-ci/v/MediatR.svg)](https://myget.org/gallery/mediatr-ci)
 
-Simple mediator implementation in .NET
+### About this fork
+By default MediatR's event handlers are triggered by type. 
+This fork allows another restriction based on a given topic.
 
-In-process messaging with no dependencies.
+Use Case:
+Segregation of events of the same type based on customer filters
 
-Supports request/response, commands, queries, notifications and events, synchronous and async with intelligent dispatching via C# generic variance.
+Example: 
+In our restaurant our regular customers get an additional free drink when they place their order.
+The order type is the same, but the decision is made based on the customer names.
+```csharp
+public class RegularCustomerHandler : INotificationHandler<Order>
+{
+    [Topic("regular-customer")]
+    public Task Handle(Order notification, CancellationToken cancellationToken)
+    {
+        //serve a free drink
+    }
+}
 
-Examples in the [wiki](https://github.com/jbogard/MediatR/wiki).
+public class CustomerHandler : INotificationHandler<Order>
+{
+    public Task Handle(Order notification, CancellationToken cancellationToken)
+    {
+        //prepare meal
+    }
+}
 
-### Installing MediatR
+public class OrderCreator
+{
+    private Mediator _mediator;
+    private List<string> _regularCustomers = new List<string>() { "Maria Anders", "Ana Trujillo"};
 
-You should install [MediatR with NuGet](https://www.nuget.org/packages/MediatR):
+    public void OrderCreated(Order order)
+    {
+        _mediator.Publish(order); //prepare Meal
 
-    Install-Package MediatR
-    
-Or via the .NET Core command line interface:
-
-    dotnet add package MediatR
-
-Either commands, from Package Manager Console or .NET Core CLI, will download and install MediatR and all required dependencies.
+        if(_regularCustomers.contains(order.customer))
+        {
+            _mediator.Publish(order, "regular-customer"); //serve free drink etc.      
+	    }
+    }
+}

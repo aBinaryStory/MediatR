@@ -42,5 +42,24 @@ namespace MediatR
         /// <returns>A task that represents the publish operation.</returns>
         Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
             where TNotification : INotification;
+
+        /// <summary>
+        /// Asynchronously send a notification to multiple handlers of a topic
+        /// </summary>
+        /// <param name="notification">Notification object</param>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        /// <param name="topic">Optional cancellation token</param>
+        /// <returns>A task that represents the publish operation.</returns>
+        Task Publish(object notification, string topic, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Asynchronously send a notification to multiple handlers of a topic
+        /// </summary>
+        /// <param name="notification">Notification object</param>
+        /// <param name="cancellationToken">Optional cancellation token</param>
+        /// <param name="topic">Optional specific channel for notifications</param>
+        /// <returns>A task that represents the publish operation.</returns>
+        Task Publish<TNotification>(TNotification notification, string topic, CancellationToken cancellationToken = default)
+            where TNotification : INotification;
     }
 }

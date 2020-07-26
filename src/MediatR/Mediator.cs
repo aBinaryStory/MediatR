@@ -5,6 +5,8 @@ namespace MediatR
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Reflection;
+    using System.Reflection.Emit;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -66,7 +68,7 @@ namespace MediatR
             return ((RequestHandlerBase) handler).Handle(request, cancellationToken, _serviceFactory);
         }
 
-        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default)
+        public Task Publish<TNotification>(TNotification notification, string topic, CancellationToken cancellationToken = default)
              where TNotification : INotification
         {
             if (notification == null)
@@ -74,10 +76,15 @@ namespace MediatR
                 throw new ArgumentNullException(nameof(notification));
             }
 
-            return PublishNotification(notification, cancellationToken);
+            return PublishNotification(notification, cancellationToken, topic);
         }
 
-        public Task Publish(object notification, CancellationToken cancellationToken = default)
+        public Task Publish<TNotification>(TNotification notification, CancellationToken cancellationToken = default) where TNotification : INotification
+        {
+            return Publish(notification, "", cancellationToken);
+        }
+
+        public Task Publish(object notification, string topic, CancellationToken cancellationToken = default)
         {
             if (notification == null)
             {
@@ -85,11 +92,17 @@ namespace MediatR
             }
             if (notification is INotification instance)
             {
-                return PublishNotification(instance, cancellationToken);
+                return PublishNotification(instance, cancellationToken, topic);
             }
 
             throw new ArgumentException($"{nameof(notification)} does not implement ${nameof(INotification)}");
         }
+
+        public Task Publish(object notification, CancellationToken cancellationToken = default)
+        {
+            return Publish(notification, "", cancellationToken);
+        }
+
 
         /// <summary>
         /// Override in a derived class to control how the tasks are awaited. By default the implementation is a foreach and await of each handler
@@ -97,8 +110,9 @@ namespace MediatR
         /// <param name="allHandlers">Enumerable of tasks representing invoking each notification handler</param>
         /// <param name="notification">The notification being published</param>
         /// <param name="cancellationToken">The cancellation token</param>
+        /// <param name="topic">Optional specific channel for notifications</param>
         /// <returns>A task representing invoking all handlers</returns>
-        protected virtual async Task PublishCore(IEnumerable<Func<INotification, CancellationToken, Task>> allHandlers, INotification notification, CancellationToken cancellationToken)
+        protected virtual async Task PublishCore(IEnumerable<Func<INotification, CancellationToken, Task>> allHandlers, INotification notification, string topic, CancellationToken cancellationToken)
         {
             foreach (var handler in allHandlers)
             {
@@ -106,13 +120,13 @@ namespace MediatR
             }
         }
 
-        private Task PublishNotification(INotification notification, CancellationToken cancellationToken = default)
+        private Task PublishNotification(INotification notification, CancellationToken cancellationToken = default, string topic = "")
         {
             var notificationType = notification.GetType();
             var handler = _notificationHandlers.GetOrAdd(notificationType,
                 t => (NotificationHandlerWrapper)Activator.CreateInstance(typeof(NotificationHandlerWrapperImpl<>).MakeGenericType(notificationType)));
 
-            return handler.Handle(notification, cancellationToken, _serviceFactory, PublishCore);
+            return handler.Handle(notification, topic, cancellationToken, _serviceFactory, PublishCore);
         }
     }
 }

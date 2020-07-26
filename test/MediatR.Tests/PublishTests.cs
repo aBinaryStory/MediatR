@@ -7,6 +7,7 @@ namespace MediatR.Tests
     using System.IO;
     using System.Text;
     using System.Threading.Tasks;
+    using MediatR;
     using Shouldly;
     using StructureMap;
     using StructureMap.Graph;
@@ -46,6 +47,36 @@ namespace MediatR.Tests
             public Task Handle(Ping notification, CancellationToken cancellationToken)
             {
                 return _writer.WriteLineAsync(notification.Message + " Pung");
+            }
+        }
+
+        public class TopicHandler1 : INotificationHandler<Ping>
+        {
+            private readonly TextWriter _writer;
+
+            public TopicHandler1(TextWriter writer)
+            {
+                _writer = writer;
+            }
+            [Topic("my.topic")]
+            public Task Handle(Ping notification, CancellationToken cancellationToken)
+            {
+                return _writer.WriteLineAsync(notification.Message + " TopicHandler1");
+            }
+        }
+
+        public class TopicHandler2 : INotificationHandler<Ping>
+        {
+            private readonly TextWriter _writer;
+
+            public TopicHandler2(TextWriter writer)
+            {
+                _writer = writer;
+            }
+            [Topic("my.topic")]
+            public Task Handle(Ping notification, CancellationToken cancellationToken)
+            {
+                return _writer.WriteLineAsync(notification.Message + " TopicHandler2");
             }
         }
 
@@ -108,6 +139,37 @@ namespace MediatR.Tests
             result.ShouldContain("Ping Pung");
         }
 
+        [Fact]
+        public async Task Should_only_publish_to_topic_handlers()
+        {
+            var builder = new StringBuilder();
+            var writer = new StringWriter(builder);
+
+            var container = new Container(cfg =>
+            {
+                cfg.Scan(scanner =>
+                {
+                    scanner.AssemblyContainingType(typeof(PublishTests));
+                    scanner.IncludeNamespaceContainingType<Ping>();
+                    scanner.WithDefaultConventions();
+                    scanner.AddAllTypesOf(typeof(INotificationHandler<>));
+                });
+                cfg.For<TextWriter>().Use(writer);
+                cfg.For<IMediator>().Use<Mediator>();
+                cfg.For<ServiceFactory>().Use<ServiceFactory>(ctx => t => ctx.GetInstance(t));
+            });
+
+            var mediator = container.GetInstance<IMediator>();
+
+            await mediator.Publish(new Ping { Message = "Ping" }, "my.topic");
+
+            var result = builder.ToString().Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            result.ShouldNotContain("Ping Pong");
+            result.ShouldNotContain("Ping Pung");
+            result.ShouldContain("Ping TopicHandler1");
+            result.ShouldContain("Ping TopicHandler2");
+        }
+
         public class SequentialMediator : Mediator
         {
             public SequentialMediator(ServiceFactory serviceFactory)
@@ -115,7 +177,7 @@ namespace MediatR.Tests
             {
             }
 
-            protected override async Task PublishCore(IEnumerable<Func<INotification, CancellationToken, Task>> allHandlers, INotification notification, CancellationToken cancellationToken)
+            protected override async Task PublishCore(IEnumerable<Func<INotification, CancellationToken, Task>> allHandlers, INotification notification, string topic, CancellationToken cancellationToken)
             {
                 foreach (var handler in allHandlers)
                 {
